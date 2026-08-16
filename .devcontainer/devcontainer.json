@@ -1,0 +1,22 @@
+{
+  "name": "wolfTPM C/Clang development",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "dev",
+  "runServices": ["tpm", "dev"],
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "overrideCommand": false,
+  "remoteUser": "vscode",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "postCreateCommand": "cmake --preset debug && cmake --build --preset debug"
+}
+

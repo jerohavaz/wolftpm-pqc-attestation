@@ -1,0 +1,14 @@
+/.cache/
+/.deps/
+/.local/
+/.tooling/
+/_upstream/
+/.verify/
+/build/
+/compile_commands.json
+*.swp
+
+# third_party/wolftpm is intentionally not ignored. It is the authoritative
+# patched wolfTPM source used by both the host build and Docker simulator.
+
+results/

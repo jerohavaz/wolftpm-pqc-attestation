@@ -1,0 +1,10 @@
+.git
+.cache
+.deps
+.local
+.tooling
+_upstream
+.verify
+build
+compile_commands.json
+*.md~

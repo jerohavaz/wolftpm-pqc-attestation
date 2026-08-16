@@ -1,0 +1,4 @@
+[submodule "third_party/wolftpm"]
+	path = third_party/wolftpm
+	url = https://github.com/jerohavaz/wolfTPM.git
+	branch = pqc-attestation
