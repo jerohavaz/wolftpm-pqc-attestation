@@ -11,20 +11,34 @@
 static const byte kAkAuth[] = "aik-auth";
 
 /* ------------------------------------------------------------------------- */
-/* Classical profile: RSA EK + RSA SRK + RSA AK + RSASSA/SHA-256 Quote      */
+/* Classical profile: RSA EK + RSA AK + RSASSA/SHA-256 Quote                */
+/*                                                                           */
+/* Both objects are TPM primaries. The EK is rooted in the Endorsement       */
+/* hierarchy; the AK is rooted independently in the Owner hierarchy. Only    */
+/* these two key objects are created. MakeCredential/ActivateCredential bind  */
+/* the credential to the AK Name and use the EK independently.               */
 /* ------------------------------------------------------------------------- */
 
 static int rsa_create_ek(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ek) {
     return wolfTPM2_CreateEK(dev, ek, TPM_ALG_RSA);
 }
 
-static int rsa_create_srk(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *srk) {
-    return wolfTPM2_CreateSRK(dev, srk, TPM_ALG_RSA, NULL, 0);
-}
+static int rsa_create_ak(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ak) {
+    TPMT_PUBLIC ak_template;
+    int rc;
 
-static int rsa_create_ak(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ak, WOLFTPM2_KEY *srk) {
-    return wolfTPM2_CreateAndLoadAIK(
-        dev, ak, TPM_ALG_RSA, srk, kAkAuth, (int)(sizeof(kAkAuth) - 1U));
+    XMEMSET(&ak_template, 0, sizeof(ak_template));
+
+    rc = wolfTPM2_GetKeyTemplate_RSA_AIK(&ak_template);
+    if (rc != TPM_RC_SUCCESS)
+        return rc;
+
+    return wolfTPM2_CreatePrimaryKey(dev,
+                                     ak,
+                                     TPM_RH_OWNER,
+                                     &ak_template,
+                                     kAkAuth,
+                                     (int)(sizeof(kAkAuth) - 1U));
 }
 
 static void rsa_configure_quote(Quote_In *quote) {
@@ -33,11 +47,11 @@ static void rsa_configure_quote(Quote_In *quote) {
 }
 
 /* ------------------------------------------------------------------------- */
-/* Full-PQ profile: ML-KEM-768 EK + ML-KEM-768 SRK + ML-DSA-65 AK           */
+/* Full-PQ profile: ML-KEM-768 EK + ML-DSA-65 AK                            */
 /*                                                                           */
 /* The classic convenience wrappers only accept RSA/ECC. For v1.85 PQC we   */
-/* therefore build the templates explicitly and use the generic create APIs. */
-/* We reuse the standard RSA EK/SRK/AIK templates only as sources for the     */
+/* therefore build the templates explicitly and use the generic primary-key  */
+/* API. We reuse the standard RSA EK/AIK templates only as sources for the    */
 /* object attributes and EK authorization policy. The asymmetric algorithm   */
 /* fields themselves are replaced by the v1.85 ML-KEM/ML-DSA templates.      */
 /* ------------------------------------------------------------------------- */
@@ -95,26 +109,7 @@ static int pq_create_ek(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ek) {
     return wolfTPM2_CreatePrimaryKey(dev, ek, TPM_RH_ENDORSEMENT, &pq, NULL, 0);
 }
 
-static int pq_create_srk(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *srk) {
-    TPMT_PUBLIC base;
-    TPMT_PUBLIC pq;
-    int rc;
-
-    XMEMSET(&base, 0, sizeof(base));
-    XMEMSET(&pq, 0, sizeof(pq));
-
-    rc = wolfTPM2_GetKeyTemplate_RSA_SRK(&base);
-    if (rc != TPM_RC_SUCCESS)
-        return rc;
-
-    rc = make_mlkem_template_from(&pq, &base, TPM_MLKEM_768);
-    if (rc != TPM_RC_SUCCESS)
-        return rc;
-
-    return wolfTPM2_CreatePrimaryKey(dev, srk, TPM_RH_OWNER, &pq, NULL, 0);
-}
-
-static int pq_create_ak(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ak, WOLFTPM2_KEY *srk) {
+static int pq_create_ak(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ak) {
     TPMT_PUBLIC base;
     TPMT_PUBLIC pq;
     int rc;
@@ -130,8 +125,12 @@ static int pq_create_ak(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ak, WOLFTPM2_KEY *srk) 
     if (rc != TPM_RC_SUCCESS)
         return rc;
 
-    return wolfTPM2_CreateAndLoadKey(
-        dev, ak, &srk->handle, &pq, kAkAuth, (int)(sizeof(kAkAuth) - 1U));
+    return wolfTPM2_CreatePrimaryKey(dev,
+                                     ak,
+                                     TPM_RH_OWNER,
+                                     &pq,
+                                     kAkAuth,
+                                     (int)(sizeof(kAkAuth) - 1U));
 }
 
 static void pq_configure_quote(Quote_In *quote) {
@@ -151,16 +150,9 @@ static int pq_create_ek(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ek) {
     return pq_unavailable();
 }
 
-static int pq_create_srk(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *srk) {
-    (void)dev;
-    (void)srk;
-    return pq_unavailable();
-}
-
-static int pq_create_ak(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ak, WOLFTPM2_KEY *srk) {
+static int pq_create_ak(WOLFTPM2_DEV *dev, WOLFTPM2_KEY *ak) {
     (void)dev;
     (void)ak;
-    (void)srk;
     return pq_unavailable();
 }
 
@@ -174,11 +166,9 @@ static const CryptoProfile kRsaProfile = {
     .mode = CRYPTO_MODE_RSA,
     .name = "Classical RSA",
     .ek_algorithm = "RSA-2048",
-    .srk_algorithm = "RSA-2048",
     .ak_algorithm = "RSA-2048",
     .quote_algorithm = "RSASSA/SHA-256",
     .create_ek = rsa_create_ek,
-    .create_srk = rsa_create_srk,
     .create_ak = rsa_create_ak,
     .configure_quote = rsa_configure_quote,
 };
@@ -187,11 +177,9 @@ static const CryptoProfile kPqProfile = {
     .mode = CRYPTO_MODE_PQ,
     .name = "Full PQ (ML-KEM-768 / ML-DSA-65)",
     .ek_algorithm = "ML-KEM-768",
-    .srk_algorithm = "ML-KEM-768",
     .ak_algorithm = "ML-DSA-65",
     .quote_algorithm = "ML-DSA-65",
     .create_ek = pq_create_ek,
-    .create_srk = pq_create_srk,
     .create_ak = pq_create_ak,
     .configure_quote = pq_configure_quote,
 };
@@ -200,10 +188,3 @@ const CryptoProfile *crypto_profile_get(CryptoMode mode) {
     return mode == CRYPTO_MODE_RSA ? &kRsaProfile : &kPqProfile;
 }
 
-const byte *crypto_ak_auth(void) {
-    return kAkAuth;
-}
-
-int crypto_ak_auth_size(void) {
-    return (int)(sizeof(kAkAuth) - 1U);
-}

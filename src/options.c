@@ -33,8 +33,8 @@ void options_defaults(AppOptions *options) {
 void options_print_usage(const char *program) {
     printf("Usage: %s [options]\n\n", program);
     puts("  --crypto pq|rsa       Cryptographic profile (default: pq)");
-    puts("                        pq  = ML-KEM-768 EK/SRK + ML-DSA-65 AK");
-    puts("                        rsa = RSA-2048 EK/SRK/AK");
+    puts("                        pq  = ML-KEM-768 EK + ML-DSA-65 AK");
+    puts("                        rsa = RSA-2048 EK/AK");
     puts("  --iterations N        Measured full-flow runs (default: 10)");
     puts("  --warmup N            Unmeasured warm-up runs (default: 1)");
     puts("  --csv FILE            Write raw TPM transport samples to CSV");

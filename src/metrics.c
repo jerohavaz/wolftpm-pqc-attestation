@@ -34,7 +34,6 @@ void metrics_print_sizes(const SizeSample *sizes) {
     puts("----------------------------------------------------------------");
     printf("%-32s %s\n", "Profile", sizes->profile_name);
     printf("%-32s %s\n", "EK algorithm", sizes->ek_algorithm);
-    printf("%-32s %s\n", "SRK algorithm", sizes->srk_algorithm);
     printf("%-32s %s\n", "AK algorithm", sizes->ak_algorithm);
     printf("%-32s %s\n", "Quote algorithm", sizes->quote_algorithm);
     printf("%-32s %s (0x%x)\n",
@@ -45,7 +44,6 @@ void metrics_print_sizes(const SizeSample *sizes) {
     printf("%-32s %8u B\n", "PCR digest / PCR", sizes->pcr_digest_bytes);
     puts("----------------------------------------------------------------");
     printf("%-32s %8u B\n", "EK public", sizes->ek_public_bytes);
-    printf("%-32s %8u B\n", "SRK public", sizes->srk_public_bytes);
     printf("%-32s %8u B\n", "AK public", sizes->ak_public_bytes);
     printf("%-32s %8u B\n", "Credential blob", sizes->credential_blob_bytes);
     printf("%-32s %8u B\n", "Credential secret", sizes->credential_secret_bytes);

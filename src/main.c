@@ -34,7 +34,6 @@ int main(int argc, char **argv) {
 
     printf("Crypto profile: %s\n", profile->name);
     printf("  EK:    %s\n", profile->ek_algorithm);
-    printf("  SRK:   %s\n", profile->srk_algorithm);
     printf("  AK:    %s\n", profile->ak_algorithm);
     printf("  Quote: %s\n", profile->quote_algorithm);
     printf("Warm-up: %u | measured runs: %u\n", options.warmup_iterations, options.iterations);

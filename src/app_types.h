@@ -29,7 +29,6 @@ typedef struct PerformanceSample {
 typedef struct SizeSample {
     const char *profile_name;
     const char *ek_algorithm;
-    const char *srk_algorithm;
     const char *ak_algorithm;
     const char *quote_algorithm;
 
@@ -38,7 +37,6 @@ typedef struct SizeSample {
     uint32_t pcr_digest_bytes;
 
     uint32_t ek_public_bytes;
-    uint32_t srk_public_bytes;
     uint32_t ak_public_bytes;
     uint32_t credential_blob_bytes;
     uint32_t credential_secret_bytes;
@@ -53,7 +51,6 @@ typedef struct AttestationContext {
     WOLFTPM2_DEV dev;
     WOLFTPM2_CAPS caps;
     WOLFTPM2_KEY ek;
-    WOLFTPM2_KEY srk;
     WOLFTPM2_KEY ak;
     WOLFTPM2_SESSION ek_policy_activate;
 

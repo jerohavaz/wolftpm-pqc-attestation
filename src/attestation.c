@@ -80,9 +80,6 @@ static void cleanup_context(AttestationContext *ctx) {
     if (ctx->ak.handle.hndl != 0U && ctx->ak.handle.hndl != TPM_RH_NULL)
         (void)wolfTPM2_UnloadHandle(&ctx->dev, &ctx->ak.handle);
 
-    if (ctx->srk.handle.hndl != 0U && ctx->srk.handle.hndl != TPM_RH_NULL)
-        (void)wolfTPM2_UnloadHandle(&ctx->dev, &ctx->srk.handle);
-
     if (ctx->ek.handle.hndl != 0U && ctx->ek.handle.hndl != TPM_RH_NULL)
         (void)wolfTPM2_UnloadHandle(&ctx->dev, &ctx->ek.handle);
 
@@ -99,7 +96,6 @@ static void initialize_size_metadata(const CryptoProfile *profile,
                                      SizeSample *sizes) {
     sizes->profile_name = profile->name;
     sizes->ek_algorithm = profile->ek_algorithm;
-    sizes->srk_algorithm = profile->srk_algorithm;
     sizes->ak_algorithm = profile->ak_algorithm;
     sizes->quote_algorithm = profile->quote_algorithm;
     sizes->pcr_bank_alg = PCR_BANK_ALG;
@@ -120,24 +116,16 @@ static int create_keys(const CryptoProfile *profile,
         return fail_rc("CreateEK", rc);
     sizes->ek_public_bytes = (uint32_t)ctx->ek.pub.size;
 
-    transport_trace_set_phase(trace, "SRK_CREATE");
-    rc = profile->create_srk(&ctx->dev, &ctx->srk);
-    if (rc != TPM_RC_SUCCESS)
-        return fail_rc("CreateSRK", rc);
-    sizes->srk_public_bytes = (uint32_t)ctx->srk.pub.size;
-
     transport_trace_set_phase(trace, "AK_CREATE");
-    rc = profile->create_ak(&ctx->dev, &ctx->ak, &ctx->srk);
+    rc = profile->create_ak(&ctx->dev, &ctx->ak);
     if (rc != TPM_RC_SUCCESS)
         return fail_rc("CreateAK", rc);
     sizes->ak_public_bytes = (uint32_t)ctx->ak.pub.size;
 
     if (verbose) {
-        printf("Keys: EK=0x%x [%s], SRK=0x%x [%s], AK=0x%x [%s]\n",
+        printf("Keys: EK=0x%x [%s], AK=0x%x [%s]\n",
                (unsigned)ctx->ek.handle.hndl,
                profile->ek_algorithm,
-               (unsigned)ctx->srk.handle.hndl,
-               profile->srk_algorithm,
                (unsigned)ctx->ak.handle.hndl,
                profile->ak_algorithm);
     }
@@ -177,8 +165,6 @@ static int make_credential(AttestationContext *ctx, SizeSample *sizes, Transport
 }
 
 static int configure_activate_auth(AttestationContext *ctx, TransportTrace *trace) {
-    const byte *ak_auth = crypto_ak_auth();
-    int ak_auth_size = crypto_ak_auth_size();
     int rc;
 
     (void)wolfTPM2_UnsetAuth(&ctx->dev, 0);
@@ -198,9 +184,6 @@ static int configure_activate_auth(AttestationContext *ctx, TransportTrace *trac
     rc = wolfTPM2_SetAuthHandleName(&ctx->dev, 1, &ctx->ek.handle);
     if (rc != TPM_RC_SUCCESS)
         return fail_rc("wolfTPM2_SetAuthHandleName(EK)", rc);
-
-    ctx->ak.handle.auth.size = (UINT16)ak_auth_size;
-    XMEMCPY(ctx->ak.handle.auth.buffer, ak_auth, (size_t)ak_auth_size);
 
     rc = wolfTPM2_SetAuthHandle(&ctx->dev, 0, &ctx->ak.handle);
     if (rc != TPM_RC_SUCCESS)
@@ -265,15 +248,10 @@ static int collect_pcrs(AttestationContext *ctx, SizeSample *sizes, TransportTra
 }
 
 static int configure_quote_auth(AttestationContext *ctx) {
-    const byte *ak_auth = crypto_ak_auth();
-    int ak_auth_size = crypto_ak_auth_size();
     int rc;
 
     (void)wolfTPM2_UnsetAuth(&ctx->dev, 0);
     (void)wolfTPM2_UnsetAuth(&ctx->dev, 1);
-
-    ctx->ak.handle.auth.size = (UINT16)ak_auth_size;
-    XMEMCPY(ctx->ak.handle.auth.buffer, ak_auth, (size_t)ak_auth_size);
 
     rc = wolfTPM2_SetAuthHandle(&ctx->dev, 0, &ctx->ak.handle);
     if (rc != TPM_RC_SUCCESS)

@@ -1,51 +1,51 @@
-# wolfTPM TPM 2.0 v1.85 full-PQ attestation benchmark
+# wolfTPM TPM 2.0 v1.85 EK/AK attestation benchmark
 
-This repository runs the **same remote-attestation implementation** with two
-runtime-selectable cryptographic profiles:
+This repository runs the same remote-attestation implementation with two runtime-selectable cryptographic profiles:
 
-| profile | EK | storage parent (SRK) | AK / Quote | PCR bank |
-|---|---|---|---|---|
-| `--crypto pq` (default) | ML-KEM-768 | ML-KEM-768 | ML-DSA-65 | SHA-256 |
-| `--crypto rsa` | RSA-2048 | RSA-2048 | RSASSA/SHA-256 | SHA-256 |
+| profile | EK | AK / Quote | PCR bank |
+|---|---|---|---|
+| `--crypto pq` (default) | ML-KEM-768 | ML-DSA-65 | SHA-256 |
+| `--crypto rsa` | RSA-2048 | RSASSA/SHA-256 | SHA-256 |
 
-The logical protocol is identical in both profiles:
+Only two TPM key objects are created for each run:
 
 ```text
-EK -> SRK -> AK
-   -> MakeCredential
-   -> ActivateCredential
-   -> Read PCR 0..15
-   -> Quote(nonce, PCR selection)
-   -> verifier checks nonce + PCR digest + signature
+EK  = primary under the Endorsement hierarchy
+AK  = primary under the Owner hierarchy
 ```
 
-The important experimental property is that **RSA and PQ are built into the
-same wolfSSL/wolfTPM binary stack**. `--crypto` changes the key templates and
-signature verifier at runtime; it does not switch libraries, compiler settings,
-transport, or simulator.
+The attestation flow is:
+
+```text
+Create EK
+Create AK
+MakeCredential(EK, AK Name)
+ActivateCredential(AK, EK)
+Read PCR 0..15
+Quote(AK, nonce, PCR selection)
+Verifier checks nonce + PCR digest + signature
+```
+
+`TPM2_MakeCredential` binds the credential to the AK Name while protecting it for the EK. `TPM2_ActivateCredential` then proves possession of both the AK and EK. The AK does not need to be a child of the EK for this protocol.
+
+The important experimental property is that RSA and PQ are built into the same wolfSSL/wolfTPM binary stack. `--crypto` changes the key templates and signature verifier at runtime; it does not switch libraries, compiler settings, transport, or simulator.
 
 ## PCRs do not become larger because of PQ
 
-The PQ migration changes the asymmetric cryptography, not the PCR bank. This
-project deliberately keeps the SHA-256 PCR bank fixed for both profiles.
-Therefore PCR 0..15 are still:
+The PQ migration changes the asymmetric cryptography, not the PCR bank. This project deliberately keeps the SHA-256 PCR bank fixed for both profiles. Therefore PCR 0..15 are still:
 
 ```text
 16 PCRs * 32 bytes = 512 bytes
 ```
 
-The code no longer assumes `32` internally. It asks wolfTPM for the digest size
-of `PCR_BANK_ALG`, stores PCRs in a generic maximum-size buffer, and calculates
-the reported PCR payload from `PCR count * actual digest size`. That prevents
-the payload accounting from silently becoming wrong if a different bank is
-chosen later.
+The code asks wolfTPM for the digest size of `PCR_BANK_ALG`, stores PCRs in a generic maximum-size buffer, and calculates the reported PCR payload from `PCR count * actual digest size`.
 
 ## Repository layout
 
 ```text
 src/
   main.c                 orchestration only
-  attestation.c          common EK -> credential -> PCR -> Quote flow
+  attestation.c          common EK + AK credential/PCR/Quote flow
   crypto_profile.c       RSA vs ML-KEM/ML-DSA key/template boundary
   verifier.c             RSA and ML-DSA software signature verification
   transport_trace.c      raw TPM command RTT + request/response sizes
@@ -58,9 +58,7 @@ third_party/
 .local/                  locally installed PQ-enabled wolfSSL
 ```
 
-There are no bootstrap patches or source-rewriting scripts. The application
-compiles the pinned `third_party/wolftpm` submodule directly with
-`add_subdirectory()`, and Docker builds its fwTPM server from the same source.
+The application compiles the pinned `third_party/wolftpm` submodule directly with `add_subdirectory()`, and Docker builds its fwTPM server from the same source.
 
 Clone the complete project with:
 
@@ -80,17 +78,11 @@ git submodule update --init --recursive
 ./scripts/setup.sh
 ```
 
-`setup.sh` initializes the wolfTPM submodule when necessary,
-downloads wolfSSL 5.9.2 into `.cache/wolfssl`, and installs a PQ-enabled build
-into `.local`. It never downloads or modifies wolfTPM.
-
-The host application and patched wolfTPM are then configured together by the
-top-level CMake project with TPM 2.0 v1.85/PQC macros enabled.
+`setup.sh` initializes the wolfTPM submodule when necessary, downloads wolfSSL 5.9.2 into `.cache/wolfssl`, and installs a PQ-enabled build into `.local`.
 
 ## Build and start the simulator
 
-The Docker fwTPM is built from the **same `third_party/wolftpm` source** and is
-compiled with v1.85 ML-DSA/ML-KEM support.
+The Docker fwTPM is built from the same `third_party/wolftpm` source and is compiled with v1.85 ML-DSA/ML-KEM support.
 
 ```sh
 docker compose up --detach --build --wait tpm
@@ -123,16 +115,12 @@ Profile:
 
 ```text
 EK    ML-KEM-768
-SRK   ML-KEM-768
 AK    ML-DSA-65
 Quote ML-DSA-65
 PCR   SHA-256, PCR 0..15
 ```
 
-The ML-KEM EK retains the standard EK object attributes and endorsement policy.
-The ML-KEM SRK retains the classical storage-parent attributes. The ML-DSA AK
-retains the restricted signing/attestation attributes of the classical AIK.
-Only the asymmetric algorithm-specific portions of those templates are changed.
+The ML-KEM EK retains the standard EK object attributes and endorsement policy. The ML-DSA AK retains the restricted signing/attestation attributes of the classical AIK template. The AK is created directly as a primary key in the Owner hierarchy.
 
 ## Switch to classical RSA
 
@@ -146,6 +134,8 @@ No rebuild is needed:
     --csv results/rsa_transport.csv \
     --quiet
 ```
+
+The RSA AK also uses the AIK template and is created directly as an Owner hierarchy primary key.
 
 ## Run a matched RSA/PQ comparison
 
@@ -190,11 +180,7 @@ raw TPM response
 application
 ```
 
-Thus the primary `rtt_ns` metric excludes application-side structure setup,
-client command marshaling, TPM response parsing and external quote verification.
-It still includes the fixed local socket/Docker path, so call it **TPM command
-round-trip latency at the serialized transport boundary**, not pure cryptographic
-CPU time.
+The primary `rtt_ns` metric excludes application-side structure setup, client command marshaling, TPM response parsing and external quote verification. It still includes the fixed local socket/Docker path, so it is TPM command round-trip latency at the serialized transport boundary, not pure cryptographic CPU time.
 
 Each raw sample contains:
 
@@ -209,17 +195,14 @@ serialized response bytes
 round-trip ns
 ```
 
-The response length is read from the TPM response header (`responseSize`), not
-from wolfTPM's receive-buffer capacity.
+The response length is read from the TPM response header (`responseSize`).
 
 ## Semantic payload output
 
-The application separately prints sizes that are useful for the migration
-analysis:
+The application separately prints:
 
 ```text
 EK public structure
-SRK public structure
 AK public structure
 credential blob
 credential secret
@@ -230,33 +213,27 @@ signature bytes
 attestation response payload
 ```
 
-Do not confuse these with the transport request/response sizes. Both are useful:
-semantic sizes show the protocol artifacts, while transport sizes show what the
-actual TPM command channel carries.
+Semantic sizes show the protocol artifacts, while transport sizes show what the actual TPM command channel carries.
 
-## Full-PQ implementation boundary
+## EK/AK implementation boundary
 
 `src/crypto_profile.c` is the only file responsible for TPM key construction:
 
 ```text
 RSA profile:
-  wolfTPM convenience RSA EK/SRK/AIK wrappers
+  RSA-2048 EK -> Endorsement hierarchy primary
+  RSA-2048 AK -> Owner hierarchy primary using the AIK template
+  Quote scheme -> RSASSA/SHA-256
 
 PQ profile:
-  ML-KEM-768 EK template -> Endorsement hierarchy primary
-  ML-KEM-768 SRK template -> Owner hierarchy primary
-  ML-DSA-65 AIK template -> child of ML-KEM SRK
+  ML-KEM-768 EK -> Endorsement hierarchy primary
+  ML-DSA-65 AK -> Owner hierarchy primary using AIK attributes
   Quote scheme -> TPM_ALG_MLDSA
 ```
 
-The PQ path uses wolfTPM's v1.85 generic template/create wrappers because the
-older `wolfTPM2_CreateEK`, `wolfTPM2_CreateSRK` and `wolfTPM2_CreateAndLoadAIK`
-convenience APIs are RSA/ECC-oriented.
+The PQ path uses wolfTPM's v1.85 generic template/create wrappers because the older convenience APIs are RSA/ECC-oriented.
 
-`src/verifier.c` dispatches by `TPMT_SIGNATURE.sigAlg`. RSA uses the existing
-RSASSA/SHA-256 verifier. ML-DSA imports the TPM AK's raw ML-DSA public key into
-wolfCrypt and verifies the raw quote attestation bytes with an empty FIPS 204
-context.
+`src/verifier.c` dispatches by `TPMT_SIGNATURE.sigAlg`. RSA uses the existing RSASSA/SHA-256 verifier. ML-DSA imports the TPM AK's raw ML-DSA public key into wolfCrypt and verifies the raw quote attestation bytes with an empty FIPS 204 context.
 
 ## Editing the patched wolfTPM
 
@@ -273,9 +250,7 @@ and rebuild:
 ./scripts/rebuild-wolftpm.sh release
 ```
 
-Ninja recompiles the changed wolfTPM objects and relinks the application. No
-host-side wolfTPM install step or patch application exists. Rebuild the Docker
-`tpm` image as well after changing fwTPM server code.
+Rebuild the Docker `tpm` image as well after changing fwTPM server code.
 
 ## Tests
 
@@ -289,10 +264,8 @@ The integration preset executes one full-PQ flow and one classical RSA flow.
 
 ## Include formatting
 
-`.clang-format` uses `SortIncludes: Never`. Keep it that way because wolfTPM /
-wolfSSL configuration headers can be include-order-sensitive.
+`.clang-format` uses `SortIncludes: Never`. Keep it that way because wolfTPM / wolfSSL configuration headers can be include-order-sensitive.
 
 ## Pinned versions
 
-`.env` pins wolfSSL 5.9.2. The wolfTPM revision is the revision supplied in
-`third_party/wolftpm`.
+`.env` pins wolfSSL 5.9.2. The wolfTPM revision is the revision supplied in `third_party/wolftpm`.
