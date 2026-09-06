@@ -41,7 +41,6 @@ void transport_trace_set_phase(TransportTrace *trace, const char *phase);
 
 void transport_trace_callback(const WOLFTPM2_TRANSPORT_METRIC *metric, void *user_ctx);
 
-void transport_trace_print_summary(const TransportTrace *trace);
 int transport_trace_write_csv(const TransportTrace *trace, const char *path);
 
 #endif

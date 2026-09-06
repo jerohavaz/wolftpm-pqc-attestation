@@ -6,7 +6,6 @@
 #include "transport_trace.h"
 
 typedef struct RunOptions {
-    int verbose;
     unsigned run_index;
     TransportTrace *transport_trace;
 } RunOptions;

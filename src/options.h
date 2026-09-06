@@ -7,7 +7,6 @@ typedef struct AppOptions {
     CryptoMode crypto_mode;
     unsigned iterations;
     unsigned warmup_iterations;
-    int verbose;
     const char *csv_path;
 } AppOptions;
 

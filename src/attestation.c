@@ -28,7 +28,7 @@ static void set_pcr_range(TPML_PCR_SELECTION *selection) {
     TPM2_SetupPCRSelArray(selection, PCR_BANK_ALG, pcr_indices, (word32)PCR_COUNT);
 }
 
-static int init_context(AttestationContext *ctx, int verbose) {
+static int init_context(AttestationContext *ctx) {
     int rc;
 
     XMEMSET(ctx, 0, sizeof(*ctx));
@@ -56,19 +56,6 @@ static int init_context(AttestationContext *ctx, int verbose) {
     rc = wolfTPM2_GetCapabilities(&ctx->dev, &ctx->caps);
     if (rc != TPM_RC_SUCCESS)
         return fail_rc("wolfTPM2_GetCapabilities", rc);
-
-    if (verbose) {
-        printf("TPM: %s / %s, firmware %u.%u\n",
-               ctx->caps.mfgStr,
-               ctx->caps.vendorStr,
-               ctx->caps.fwVerMajor,
-               ctx->caps.fwVerMinor);
-        printf("PCR bank: %s, PCRs %d..%d, %d B per PCR\n",
-               TPM2_GetAlgName(PCR_BANK_ALG),
-               PCR_FIRST_INDEX,
-               PCR_LAST_INDEX,
-               ctx->pcr_digest_size);
-    }
 
     return TPM_RC_SUCCESS;
 }
@@ -106,7 +93,6 @@ static void initialize_size_metadata(const CryptoProfile *profile,
 static int create_keys(const CryptoProfile *profile,
                        AttestationContext *ctx,
                        SizeSample *sizes,
-                       int verbose,
                        TransportTrace *trace) {
     int rc;
 
@@ -121,14 +107,6 @@ static int create_keys(const CryptoProfile *profile,
     if (rc != TPM_RC_SUCCESS)
         return fail_rc("CreateAK", rc);
     sizes->ak_public_bytes = (uint32_t)ctx->ak.pub.size;
-
-    if (verbose) {
-        printf("Keys: EK=0x%x [%s], AK=0x%x [%s]\n",
-               (unsigned)ctx->ek.handle.hndl,
-               profile->ek_algorithm,
-               (unsigned)ctx->ak.handle.hndl,
-               profile->ak_algorithm);
-    }
 
     return TPM_RC_SUCCESS;
 }
@@ -324,7 +302,7 @@ int attestation_run_once(const CryptoProfile *profile,
     XMEMSET(performance, 0, sizeof(*performance));
     XMEMSET(sizes, 0, sizeof(*sizes));
 
-    rc = init_context(&ctx, options->verbose);
+    rc = init_context(&ctx);
     if (rc != TPM_RC_SUCCESS) {
         cleanup_context(&ctx);
         return rc;
@@ -339,7 +317,7 @@ int attestation_run_once(const CryptoProfile *profile,
 
     total_start = metrics_now_ns();
 
-    rc = create_keys(profile, &ctx, sizes, options->verbose, options->transport_trace);
+    rc = create_keys(profile, &ctx, sizes, options->transport_trace);
     if (rc != TPM_RC_SUCCESS)
         goto cleanup;
 
@@ -366,13 +344,6 @@ int attestation_run_once(const CryptoProfile *profile,
     }
 
     performance->full_flow_ns = metrics_now_ns() - total_start;
-
-    if (options->verbose) {
-        printf("Attestation passed (%s): quote=%u B, signature=%u B\n",
-               profile->name,
-               sizes->quote_attest_bytes,
-               sizes->quote_signature_bytes);
-    }
 
 cleanup:
     if (trace_started)

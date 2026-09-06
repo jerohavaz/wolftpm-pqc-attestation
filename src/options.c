@@ -22,23 +22,19 @@ static int parse_unsigned(const char *text, unsigned *value) {
 }
 
 void options_defaults(AppOptions *options) {
-    /* Full-PQ is the primary experiment. Classical remains one flag away. */
     options->crypto_mode = CRYPTO_MODE_PQ;
     options->iterations = 10U;
     options->warmup_iterations = 1U;
-    options->verbose = 1;
-    options->csv_path = NULL;
+    options->csv_path = "transport.csv";
 }
 
 void options_print_usage(const char *program) {
     printf("Usage: %s [options]\n\n", program);
     puts("  --crypto pq|rsa       Cryptographic profile (default: pq)");
-    puts("                        pq  = ML-KEM-768 EK + ML-DSA-65 AK");
-    puts("                        rsa = RSA-2048 EK/AK");
     puts("  --iterations N        Measured full-flow runs (default: 10)");
     puts("  --warmup N            Unmeasured warm-up runs (default: 1)");
-    puts("  --csv FILE            Write raw TPM transport samples to CSV");
-    puts("  --quiet               Suppress per-run flow output");
+    puts("  --csv FILE            Raw transport CSV (default: transport.csv)");
+    puts("                        Also writes FILE_runs.csv and FILE_metadata.csv");
     puts("  --help                Show this help");
 }
 
@@ -69,7 +65,8 @@ int options_parse(AppOptions *options, int argc, char **argv) {
                 return -1;
             options->csv_path = argv[i];
         } else if (strcmp(argv[i], "--quiet") == 0) {
-            options->verbose = 0;
+            /* Kept as a no-op for compatibility with existing scripts. */
+            continue;
         } else if (strcmp(argv[i], "--help") == 0) {
             options_print_usage(argv[0]);
             return 1;

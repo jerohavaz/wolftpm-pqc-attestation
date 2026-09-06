@@ -13,8 +13,11 @@ services:
     ports:
       - "127.0.0.1:${TPM_COMMAND_PORT:-2321}:2321"
       - "127.0.0.1:${TPM_PLATFORM_PORT:-2322}:2322"
+    environment:
+      FWTPM_BENCH_FILE: /bench/${FWTPM_BENCH_FILENAME:-fwtpm_internal.csv}
     volumes:
       - tpm-state:/var/lib/wolftpm
+      - ./results/fwtpm:/bench
     healthcheck:
       test: ["CMD", "test", "-f", "/tmp/fwtpm-ready"]
       interval: 2s
