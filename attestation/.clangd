@@ -1,0 +1,9 @@
+CompileFlags:
+  CompilationDatabase: build/clangd
+  Add: [-Wall, -Wextra, -Wpedantic]
+  Remove: [-Werror]
+Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
+Index:
+  Background: Build

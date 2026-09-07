@@ -1,9 +1,10 @@
-name: wolftpm-development
+name: wolftpm-attestation-bench
 
 x-wolftpm-build: &wolftpm-build
   context: .
+  dockerfile: attestation/docker/Dockerfile
   args:
-    WOLFSSL_VERSION: ${WOLFSSL_VERSION:-5.9.2}
+    WOLFSSL_COMMIT: ${WOLFSSL_COMMIT:-}
 
 services:
   tpm:
@@ -14,45 +15,40 @@ services:
       - "127.0.0.1:${TPM_COMMAND_PORT:-2321}:2321"
       - "127.0.0.1:${TPM_PLATFORM_PORT:-2322}:2322"
     environment:
-      FWTPM_BENCH_FILE: /bench/${FWTPM_BENCH_FILENAME:-fwtpm_internal.csv}
+      FWTPM_BENCH_FILE: /results/fwtpm_internal.csv
     volumes:
       - tpm-state:/var/lib/wolftpm
-      - ./results/fwtpm:/bench
+      - ${RESULTS_ROOT:-./results/raw}/${PROFILE_SLUG:-pq}:/results
     healthcheck:
       test: ["CMD", "test", "-f", "/tmp/fwtpm-ready"]
-      interval: 2s
+      interval: 1s
       timeout: 1s
       retries: 30
       start_period: 2s
-    restart: unless-stopped
+    restart: "no"
 
   app:
-    profiles: ["app"]
     build:
       <<: *wolftpm-build
       target: app
     environment:
       TPM2_SWTPM_HOST: tpm
       TPM2_SWTPM_PORT: "2321"
-    depends_on:
-      tpm:
-        condition: service_healthy
-
-  dev:
-    profiles: ["dev"]
-    build:
-      <<: *wolftpm-build
-      target: dev
-    environment:
-      TPM2_SWTPM_HOST: tpm
-      TPM2_SWTPM_PORT: "2321"
     volumes:
-      - .:/workspace:cached
-    working_dir: /workspace
+      - ${RESULTS_ROOT:-./results/raw}/${PROFILE_SLUG:-pq}:/results
     depends_on:
       tpm:
         condition: service_healthy
-    init: true
+    command:
+      - --crypto
+      - ${CRYPTO_PROFILE:-pq}
+      - --warmup
+      - ${WARMUP_RUNS:-10}
+      - --iterations
+      - ${MEASURED_RUNS:-200}
+      - --output-dir
+      - /results
+    restart: "no"
 
 volumes:
   tpm-state:

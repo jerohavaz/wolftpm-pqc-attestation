@@ -1,0 +1,11 @@
+Key benchmark results
+=====================
+
+AK Create: client RSA/PQ 1264.1/1104.7 us; internal 24.4/25.2 us.
+ActivateCredential: internal RSA/PQ 2729.8/95.8 us (-96.5% PQ vs RSA).
+Quote: internal RSA/PQ 2684.0/373.0 us (-86.1% PQ vs RSA).
+Verifier: RSA/PQ 61.3/103.1 us.
+Full flow: RSA/PQ 37131.1/27485.3 us.
+Quote signature size: RSA/PQ 256/3309 B (12.9x).
+Attestation response: RSA/PQ 913/3966 B (4.3x).
+

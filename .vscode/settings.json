@@ -3,7 +3,7 @@
   "clangd.arguments": [
     "--background-index",
     "--clang-tidy",
-    "--compile-commands-dir=${workspaceFolder}/build/debug",
+    "--compile-commands-dir=${workspaceFolder}/attesation/build/${buildType}",
     "--completion-style=detailed",
     "--header-insertion=iwyu"
   ],
@@ -19,7 +19,8 @@
   },
   "cmake.useCMakePresets": "always",
   "cmake.configureOnOpen": false,
-  "cmake.buildDirectory": "${workspaceFolder}/build/${buildType}",
+  "cmake.buildDirectory": "${workspaceFolder}/attesation/build/${buildType}",
   "cmake.generator": "Ninja",
-  "cmake.cmakePath": "cmake"
+  "cmake.cmakePath": "cmake",
+  "cmake.sourceDirectory": "/home/jero/wolftpm_refactor_minimal/attestation",
 }

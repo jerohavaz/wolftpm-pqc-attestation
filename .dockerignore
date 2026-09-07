@@ -1,10 +1,8 @@
 .git
-.cache
-.deps
-.local
-.tooling
-_upstream
-.verify
-build
-compile_commands.json
+attestation/.cache
+attestation/.local
+attestation/build
+analysis
+results
+*.pyc
 *.md~

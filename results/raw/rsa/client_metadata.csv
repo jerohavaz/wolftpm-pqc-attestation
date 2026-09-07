@@ -1,0 +1,2 @@
+profile,ek_algorithm,ak_algorithm,quote_algorithm,pcr_bank_alg,pcr_count,pcr_digest_bytes,warmup_runs,measured_runs,ek_public_bytes,ak_public_bytes,credential_blob_bytes,credential_secret_bytes,nonce_bytes,pcr_payload_bytes,quote_attest_bytes,quote_signature_bytes,attestation_response_bytes
+Classical RSA,RSA-2048,RSA-2048,RSASSA/SHA-256,0x000b,16,32,10,200,314,280,68,256,32,512,145,256,913

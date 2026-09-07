@@ -1,4 +1,4 @@
-[submodule "third_party/wolftpm"]
-	path = third_party/wolftpm
-	url = https://github.com/jerohavaz/wolfTPM.git
+[submodule "attestation/third_party/wolftpm"]
+	path = attestation/third_party/wolftpm
+	url = git@github.com:jerohavaz/wolfTPM.git
 	branch = pqc-attestation

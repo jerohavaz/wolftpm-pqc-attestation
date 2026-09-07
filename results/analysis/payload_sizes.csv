@@ -1,0 +1,6 @@
+object,rsa_bytes,pq_bytes,pq_over_rsa
+EK Public,314,1232,3.9235668789808917
+AK Public,280,1967,7.025
+Credential Secret,256,1088,4.25
+Quote Signature,256,3309,12.92578125
+Attestation Response,913,3966,4.343921139101862
