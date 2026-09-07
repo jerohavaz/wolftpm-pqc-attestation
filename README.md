@@ -29,14 +29,14 @@ The setup script builds the local wolfSSL dependency under `attestation/.local`.
 
 ```bash
 cd attestation
-cmake --preset default
-cmake --build --preset default
+cmake --preset debug
+cmake --build --preset debug
 ```
 
 The executable is written to:
 
 ```text
-attestation/build/default/attestation_bench
+attestation/build/debug/attestation_bench
 ```
 
 ## Run the benchmark
